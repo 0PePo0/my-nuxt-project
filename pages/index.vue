@@ -1,159 +1,130 @@
 <template>
-  <div class="p-6 max-w-6xl mx-auto">
-    <h1 class="text-2xl font-bold mb-6">Data Table</h1>
+  <div class="products-table-container">
 
-    <!-- Search input -->
-    <div class="mb-4">
-      <div class="relative max-w-md">
-        <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Search..."
-            class="w-full px-4 py-2 border rounded-md pl-10 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
-        <div class="absolute left-3 top-1/2 transform -translate-y-1/2">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
+    <!-- Loading state -->
+    <div v-if="loading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Завантаження даних...</p>
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="error-state">
+      <p>Помилка завантаження даних: {{ error }}</p>
+      <button @click="fetchProducts" class="retry-button">Спробувати знову</button>
+    </div>
+
+    <div v-else class="table-container">
+
+      <!-- Table -->
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+          <tr>
+            <th
+                v-for="column in columns"
+                :key="column.key"
+                class="table-header"
+                @click="sortTable(column.key)"
+            >
+              <div class="header-content">
+                {{ column.label }}
+                <span v-if="column.sortable" class="sort-icon">
+                    <template v-if="sort.column === column.key">
+                      <svg v-if="sort.direction === 'asc'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m18 15-6-6-6 6"/>
+                      </svg>
+                      <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="m6 9 6 6 6-6"/>
+                      </svg>
+                    </template>
+                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inactive-sort">
+                      <path d="m7 15 5 5 5-5"/>
+                      <path d="m7 9 5-5 5 5"/>
+                    </svg>
+                  </span>
+              </div>
+            </th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr v-for="product in paginatedData" :key="product.id" class="table-row">
+            <td class="table-cell">{{ product.title }}</td>
+            <td class="table-cell description-cell">{{ product.description }}</td>
+            <td class="table-cell">{{ formatPrice(product.price) }}</td>
+            <td class="table-cell">
+                <span :class="getRatingClass(product.rating)">
+                  {{ product.rating }}
+                </span>
+            </td>
+            <td class="table-cell">{{ product.brand }}</td>
+            <td class="table-cell">{{ product.category }}</td>
+            <td class="table-cell thumbnail-cell">
+              <img :src="product.thumbnail" :alt="product.title" class="product-thumbnail" />
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="pagination-container">
+        <div class="pagination-info">
+          Показано {{ startIndex + 1 }} - {{ Math.min(endIndex, filteredData.length) }} з {{ filteredData.length }} товарів
         </div>
-      </div>
-    </div>
-
-    <!-- Table component -->
-    <div class="overflow-x-auto">
-      <table class="min-w-full bg-white border border-gray-200 rounded-lg">
-        <thead>
-        <tr class="bg-gray-100">
-          <th
-              v-for="column in columns"
-              :key="column.key"
-              class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer"
-              @click="sortTable(column.key)"
-          >
-            <div class="flex items-center">
-              {{ column.label }}
-              <span v-if="column.sortable" class="ml-1">
-                  <template v-if="sort.column === column.key">
-                    <svg v-if="sort.direction === 'asc'" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="m18 15-6-6-6 6"/>
-                    </svg>
-                    <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="m6 9 6 6 6-6"/>
-                    </svg>
-                  </template>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-300">
-                    <path d="m7 15 5 5 5-5"/>
-                    <path d="m7 9 5-5 5 5"/>
-                  </svg>
-                </span>
-            </div>
-          </th>
-        </tr>
-        </thead>
-        <tbody>
-        <tr v-for="row in paginatedData" :key="row.id" class="border-t border-gray-200 hover:bg-gray-50">
-          <td v-for="column in columns" :key="column.key" class="px-6 py-4 whitespace-nowrap">
-            <template v-if="column.key === 'status'">
-                <span
-                    :class="[
-                    'px-2 py-1 text-xs font-medium rounded-full',
-                    row.status === 'Active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  ]"
-                >
-                  {{ row.status }}
-                </span>
-            </template>
-            <template v-else>
-              {{ row[column.key] }}
-            </template>
-          </td>
-        </tr>
-        <tr v-if="paginatedData.length === 0">
-          <td :colspan="columns.length" class="px-6 py-10 text-center text-gray-500">
-            <div class="flex flex-col items-center justify-center">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400 mb-2">
-                <path d="M4 22h14a2 2 0 0 0 2-2V7.5L14.5 2H6a2 2 0 0 0-2 2v4"></path>
-                <path d="M14 2v6h6"></path>
-                <path d="M3 15h6"></path>
-                <path d="M9 18H3"></path>
-              </svg>
-              <p>No data found</p>
-            </div>
-          </td>
-        </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- Pagination -->
-    <div class="mt-4 flex items-center justify-between">
-      <div class="text-sm text-gray-500">
-        Showing {{ startIndex + 1 }} to {{ Math.min(endIndex, filteredData.length) }} of {{ filteredData.length }} entries
-      </div>
-      <div class="flex items-center space-x-2">
-        <button
-            @click="page = Math.max(1, page - 1)"
-            :disabled="page === 1"
-            class="px-3 py-1 border rounded-md text-sm disabled:opacity-50"
-            :class="page === 1 ? 'cursor-not-allowed' : 'hover:bg-gray-50'"
-        >
-          Previous
-        </button>
-        <div class="flex space-x-1">
+        <div class="pagination-controls">
           <button
-              v-for="p in totalPages"
-              :key="p"
-              @click="page = p"
-              class="w-8 h-8 flex items-center justify-center rounded-md text-sm"
-              :class="page === p ? 'bg-blue-500 text-white' : 'border hover:bg-gray-50'"
+              @click="page = Math.max(1, page - 1)"
+              :disabled="page === 1"
+              class="pagination-button"
+              :class="{ 'disabled': page === 1 }"
           >
-            {{ p }}
+            Попередня
+          </button>
+          <div class="pagination-pages">
+            <button
+                v-for="p in displayedPages"
+                :key="p"
+                @click="page = p"
+                class="page-button"
+                :class="{ 'active': page === p }"
+            >
+              {{ p }}
+            </button>
+          </div>
+          <button
+              @click="page = Math.min(totalPages, page + 1)"
+              :disabled="page === totalPages"
+              class="pagination-button"
+              :class="{ 'disabled': page === totalPages }"
+          >
+            Наступна
           </button>
         </div>
-        <button
-            @click="page = Math.min(totalPages, page + 1)"
-            :disabled="page === totalPages"
-            class="px-3 py-1 border rounded-md text-sm disabled:opacity-50"
-            :class="page === totalPages ? 'cursor-not-allowed' : 'hover:bg-gray-50'"
-        >
-          Next
-        </button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
-// Sample data
-const data = ref([
-  { id: 1, name: 'John Doe', email: 'john@example.com', role: 'Admin', status: 'Active', lastLogin: '2023-10-15' },
-  { id: 2, name: 'Jane Smith', email: 'jane@example.com', role: 'User', status: 'Active', lastLogin: '2023-10-14' },
-  { id: 3, name: 'Bob Johnson', email: 'bob@example.com', role: 'Editor', status: 'Inactive', lastLogin: '2023-09-20' },
-  { id: 4, name: 'Alice Brown', email: 'alice@example.com', role: 'User', status: 'Active', lastLogin: '2023-10-12' },
-  { id: 5, name: 'Charlie Wilson', email: 'charlie@example.com', role: 'Admin', status: 'Active', lastLogin: '2023-10-10' },
-  { id: 6, name: 'Diana Miller', email: 'diana@example.com', role: 'User', status: 'Inactive', lastLogin: '2023-08-05' },
-  { id: 7, name: 'Edward Davis', email: 'edward@example.com', role: 'Editor', status: 'Active', lastLogin: '2023-10-08' },
-  { id: 8, name: 'Fiona Clark', email: 'fiona@example.com', role: 'User', status: 'Active', lastLogin: '2023-10-05' },
-  { id: 9, name: 'George White', email: 'george@example.com', role: 'Admin', status: 'Inactive', lastLogin: '2023-09-15' },
-  { id: 10, name: 'Hannah Green', email: 'hannah@example.com', role: 'User', status: 'Active', lastLogin: '2023-10-01' },
-  { id: 11, name: 'Ian Black', email: 'ian@example.com', role: 'Editor', status: 'Active', lastLogin: '2023-09-28' },
-  { id: 12, name: 'Julia Red', email: 'julia@example.com', role: 'User', status: 'Inactive', lastLogin: '2023-08-20' },
-  { id: 13, name: 'Kevin Gray', email: 'kevin@example.com', role: 'Admin', status: 'Active', lastLogin: '2023-09-25' },
-  { id: 14, name: 'Laura Blue', email: 'laura@example.com', role: 'User', status: 'Active', lastLogin: '2023-09-22' },
-  { id: 15, name: 'Mike Orange', email: 'mike@example.com', role: 'Editor', status: 'Inactive', lastLogin: '2023-07-15' },
-])
+// API URL
+const API_URL = 'https://dummyjson.com/products'
+
+// State variables
+const products = ref([])
+const loading = ref(true)
+const error = ref(null)
 
 // Table columns configuration
 const columns = [
-  { key: 'id', label: 'ID', sortable: true },
-  { key: 'name', label: 'Name', sortable: true },
-  { key: 'email', label: 'Email', sortable: true },
-  { key: 'role', label: 'Role', sortable: true },
-  { key: 'status', label: 'Status', sortable: true },
-  { key: 'lastLogin', label: 'Last Login', sortable: true },
+  { key: 'title', label: 'Назва', sortable: true },
+  { key: 'description', label: 'Опис', sortable: true },
+  { key: 'price', label: 'Ціна', sortable: true },
+  { key: 'rating', label: 'Оцінка', sortable: true },
+  { key: 'brand', label: 'Бренд', sortable: true },
+  { key: 'category', label: 'Категорія', sortable: true },
+  { key: 'thumbnail', label: 'Фото', sortable: false },
 ]
 
 // Pagination state
@@ -163,20 +134,70 @@ const startIndex = computed(() => (page.value - 1) * perPage.value)
 const endIndex = computed(() => startIndex.value + perPage.value)
 const totalPages = computed(() => Math.ceil(filteredData.value.length / perPage.value))
 
+// Calculate which page numbers to display
+const displayedPages = computed(() => {
+  const pages = []
+  const maxVisiblePages = 5
+
+  if (totalPages.value <= maxVisiblePages) {
+    // Show all pages if there are few
+    for (let i = 1; i <= totalPages.value; i++) {
+      pages.push(i)
+    }
+  } else {
+    // Always show first page
+    pages.push(1)
+
+    // Calculate middle pages
+    let startPage = Math.max(2, page.value - 1)
+    let endPage = Math.min(totalPages.value - 1, page.value + 1)
+
+    // Adjust if at the beginning or end
+    if (page.value <= 2) {
+      endPage = 3
+    } else if (page.value >= totalPages.value - 1) {
+      startPage = totalPages.value - 2
+    }
+
+    // Add ellipsis if needed
+    if (startPage > 2) {
+      pages.push('...')
+    }
+
+    // Add middle pages
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i)
+    }
+
+    // Add ellipsis if needed
+    if (endPage < totalPages.value - 1) {
+      pages.push('...')
+    }
+
+    // Always show last page
+    pages.push(totalPages.value)
+  }
+
+  return pages
+})
+
 // Search state
 const searchQuery = ref('')
 
 // Sorting state
-const sort = ref({ column: 'id', direction: 'asc' })
+const sort = ref({ column: 'title', direction: 'asc' })
 
 // Filter data based on search query
 const filteredData = computed(() => {
-  if (!searchQuery.value) return data.value
+  if (!searchQuery.value) return products.value
 
   const query = searchQuery.value.toLowerCase()
-  return data.value.filter(item => {
-    return Object.values(item).some(value =>
-        String(value).toLowerCase().includes(query)
+  return products.value.filter(product => {
+    return (
+        product.title.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query) ||
+        product.brand.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query)
     )
   })
 })
@@ -188,8 +209,14 @@ const sortedData = computed(() => {
   if (!column) return filteredData.value
 
   return [...filteredData.value].sort((a, b) => {
-    const aValue = a[column]
-    const bValue = b[column]
+    let aValue = a[column]
+    let bValue = b[column]
+
+    // Handle special case for price (ensure it's treated as a number)
+    if (column === 'price') {
+      aValue = Number(aValue)
+      bValue = Number(bValue)
+    }
 
     if (typeof aValue === 'string') {
       return direction === 'asc'
@@ -213,6 +240,20 @@ watch(searchQuery, () => {
   page.value = 1
 })
 
+// Format price with currency
+function formatPrice(price) {
+  return new Intl.NumberFormat('uk-UA', {
+    style: 'currency',
+    currency: 'UAH',
+    minimumFractionDigits: 2
+  }).format(price)
+}
+
+// Get class for rating based on value
+function getRatingClass(rating) {
+  return rating < 4.5 ? 'rating-low' : 'rating-high'
+}
+
 // Handle sorting
 function sortTable(column) {
   if (sort.value.column === column) {
@@ -223,8 +264,296 @@ function sortTable(column) {
     sort.value = { column, direction: 'asc' }
   }
 }
+
+// Fetch products from API
+async function fetchProducts() {
+  loading.value = true
+  error.value = null
+
+  try {
+    const response = await fetch(API_URL)
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`)
+    }
+
+    const data = await response.json()
+    products.value = data.products || []
+  } catch (err) {
+    error.value = err.message
+    console.error('Error fetching products:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+// Fetch data on component mount
+onMounted(() => {
+  fetchProducts()
+})
 </script>
 
 <style scoped>
-/* Add any custom styles here */
+/* Container styles */
+.products-table-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+.table-title {
+  font-size: 24px;
+  font-weight: bold;
+  margin-bottom: 24px;
+}
+
+/* Loading state */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid rgba(0, 0, 0, 0.1);
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Error state */
+.error-state {
+  padding: 24px;
+  text-align: center;
+  background-color: #fee2e2;
+  border-radius: 8px;
+  color: #991b1b;
+}
+
+.retry-button {
+  margin-top: 16px;
+  padding: 8px 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.retry-button:hover {
+  background-color: #dc2626;
+}
+
+/* Search styles */
+.search-container {
+  margin-bottom: 16px;
+}
+
+.search-input-wrapper {
+  position: relative;
+  max-width: 400px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #94a3b8;
+}
+
+/* Table styles */
+.table-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: white;
+}
+
+.table-header {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #64748b;
+  background-color: #f8fafc;
+  cursor: pointer;
+  user-select: none;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.header-content {
+  display: flex;
+  align-items: center;
+}
+
+.sort-icon {
+  margin-left: 4px;
+}
+
+.inactive-sort {
+  color: #cbd5e1;
+}
+
+.table-row {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background-color 0.2s;
+}
+
+.table-row:hover {
+  background-color: #f8fafc;
+}
+
+.table-cell {
+  padding: 12px 16px;
+  vertical-align: middle;
+}
+
+/* Description cell with truncation */
+.description-cell {
+  max-width: 300px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Rating styles */
+.rating-low {
+  color: #ef4444;
+  font-weight: 500;
+}
+
+.rating-high {
+  color: #10b981;
+  font-weight: 500;
+}
+
+/* Thumbnail styles */
+.thumbnail-cell {
+  padding: 8px;
+}
+
+.product-thumbnail {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+}
+
+/* Pagination styles */
+.pagination-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #64748b;
+}
+
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-pages {
+  display: flex;
+  gap: 4px;
+}
+
+.pagination-button, .page-button {
+  padding: 6px 12px;
+  border: 1px solid #e2e8f0;
+  background-color: white;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.pagination-button:hover:not(.disabled), .page-button:hover:not(.active) {
+  background-color: #f8fafc;
+}
+
+.page-button {
+  min-width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.page-button.active {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.pagination-button.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .pagination-container {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .table-cell, .table-header {
+    padding: 8px 12px;
+  }
+
+  .description-cell {
+    max-width: 150px;
+  }
+}
 </style>
