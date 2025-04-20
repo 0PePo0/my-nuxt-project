@@ -126,7 +126,6 @@ const columns = [
   { key: 'category', label: 'Категорія', sortable: true },
   { key: 'thumbnail', label: 'Фото', sortable: false },
 ]
-
 // Pagination state
 const page = ref(1)
 const perPage = ref(5)
@@ -273,10 +272,6 @@ async function fetchProducts() {
   try {
     const response = await fetch(API_URL)
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`)
-    }
-
     const data = await response.json()
     products.value = data.products || []
   } catch (err) {
@@ -300,12 +295,6 @@ onMounted(() => {
   margin: 0 auto;
   padding: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-}
-
-.table-title {
-  font-size: 24px;
-  font-weight: bold;
-  margin-bottom: 24px;
 }
 
 /* Loading state */
@@ -355,39 +344,6 @@ onMounted(() => {
 
 .retry-button:hover {
   background-color: #dc2626;
-}
-
-/* Search styles */
-.search-container {
-  margin-bottom: 16px;
-}
-
-.search-input-wrapper {
-  position: relative;
-  max-width: 400px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 8px 12px 8px 36px;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
-}
-
-.search-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #94a3b8;
 }
 
 /* Table styles */
@@ -457,16 +413,7 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
-/* Rating styles */
-.rating-low {
-  color: #ef4444;
-  font-weight: 500;
-}
 
-.rating-high {
-  color: #10b981;
-  font-weight: 500;
-}
 
 /* Thumbnail styles */
 .thumbnail-cell {
